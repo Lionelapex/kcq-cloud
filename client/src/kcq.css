@@ -90,6 +90,23 @@ h1 { margin: 0; color: #1f2b2b; font-family: 'Space Grotesk', 'Segoe UI', sans-s
 .primary-button:hover { transform: translateY(-1px); box-shadow: 0 11px 22px rgba(27, 61, 52, .18); }
 .import-action { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 0 11px; border: 1px solid #dce5df; border-radius: 9px; color: #4c6259; background: rgba(255, 255, 255, .8); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .import-action:hover { border-color: #b9cbbd; background: #fff; }
+.question-list { display: grid; gap: 10px; }
+.question-card { position: relative; padding: 13px 38px 13px 15px; border: 1px solid #e5ebe7; border-radius: 11px; background: rgba(255, 255, 255, .78); }
+.question-text { margin: 0 0 6px; font-size: 13px; font-weight: 700; line-height: 1.45; }
+.question-answer { margin: 4px 0; color: #166534; font-size: 14px; font-weight: 800; }
+.question-unconfirmed { margin: 4px 0; color: #a15c07; font-size: 12px; }
+.question-guess { margin: 4px 0; color: #1d4ed8; font-size: 13px; font-weight: 700; }
+.question-guess small { font-weight: 500; opacity: .8; }
+:root[data-theme='dark'] .question-guess { color: #8fb4ff; }
+.question-options { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--muted); }
+.question-options .is-correct { color: #166534; font-weight: 700; }
+.question-options .is-wrong { color: var(--red); text-decoration: line-through; }
+.question-remove { position: absolute; top: 8px; right: 8px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.question-remove:hover { color: var(--red); }
+:root[data-theme='dark'] .question-card { border-color: #35423b; background: #18221d; }
+:root[data-theme='dark'] .question-answer, :root[data-theme='dark'] .question-options .is-correct { color: #86e0a0; }
+.danger-action { color: var(--red); border-color: #efd8d5; }
+.danger-action:hover { border-color: var(--red); background: #fff4f1; }
 .feedback { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -8px 0 18px; padding: 11px 13px; border-radius: 10px; font-size: 12px; }
 .feedback-success { border: 1px solid #d7e9d9; background: #f1f8f0; color: #486b4d; }
 .feedback-error { border: 1px solid #efd8d5; background: #fff4f1; color: #9d4741; }

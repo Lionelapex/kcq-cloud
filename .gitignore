@@ -13,3 +13,4 @@ money-tracker.rar
 .vscode/
 fix-duplicate.ps1
 progress.json
+.env*

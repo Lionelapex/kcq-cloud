@@ -8,6 +8,10 @@
   "scripts": {
     "dev": "npm run dev --workspace client",
     "build": "npm run build --workspace client",
-    "supabase:check": "npm run check:supabase --workspace server"
+    "supabase:check": "npm run check:supabase --workspace server",
+    "test:extension": "node extension/test/extension.test.mjs . && node extension/test/answer.test.mjs ."
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.3"
   }
 }

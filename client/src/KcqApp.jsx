@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import JSZip from 'jszip';
 import { Archive, ArrowDownToLine, ChevronLeft, ChevronRight, Cloud, Expand, FolderOpen, ImagePlus, Images, LoaderCircle, Moon, Palette, Plus, Search, Sun, Trash2, Upload, X } from 'lucide-react';
-import { createModule, deleteQuestionEntry, fetchModulesWithEntries, uploadModulePhoto } from './lib/supabaseData';
+import { createModule, deleteAllModules, deleteModule, deleteQuestionEntry, fetchModulesWithEntries, uploadModulePhoto } from './lib/supabaseData';
 import { supabaseConfigError } from './lib/supabaseClient';
+import { suggestAnswer } from './lib/guess';
 import './kcq.css';
 
 const imageExtensions = new Set(['.avif', '.bmp', '.gif', '.heic', '.jpeg', '.jpg', '.png', '.tif', '.tiff', '.webp']);
@@ -94,6 +95,13 @@ function MainApp() {
   const selectedModule = modules.find((module) => module.id === selectedModuleId) || null;
   const filteredModules = modules.filter((module) => getModuleLabel(module.name).toLowerCase().includes(moduleSearch.trim().toLowerCase()));
   const photos = selectedModule?.entries || [];
+  const savedQuestions = selectedModule?.savedQuestions || [];
+  const [questionSearch, setQuestionSearch] = useState('');
+  const filteredQuestions = useMemo(() => {
+    const needle = questionSearch.trim().toLowerCase();
+    if (!needle) return savedQuestions;
+    return savedQuestions.filter((item) => `${item.question} ${item.answer}`.toLowerCase().includes(needle));
+  }, [savedQuestions, questionSearch]);
   const filteredPhotos = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     if (!normalizedSearch) return photos;
@@ -309,6 +317,49 @@ function MainApp() {
     }
   };
 
+  const removeSavedQuestion = async (item) => {
+    if (!window.confirm('Remove this saved question?')) return;
+    setError('');
+    try {
+      await deleteQuestionEntry(item.id, null);
+      await refreshModules(selectedModule.id);
+    } catch (deleteError) {
+      setError(deleteError.message || 'Could not remove this question.');
+    }
+  };
+
+  const removeModule = async () => {
+    if (!selectedModule || !window.confirm(`Delete the module “${getModuleLabel(selectedModule.name)}” and its ${photos.length} photos? This cannot be undone.`)) return;
+    setError('');
+    try {
+      await deleteModule(selectedModule.id);
+      setViewerPhotoId('');
+      await refreshModules('');
+      setNotice('Module deleted.');
+    } catch (deleteError) {
+      setError(deleteError.message || 'Could not delete this module.');
+    }
+  };
+
+  const removeAllModules = async () => {
+    const answer = window.prompt(`This permanently deletes ALL ${modules.length} modules and ${totalPhotos} photos. Type DELETE to confirm.`);
+    if (answer?.trim() !== 'DELETE') return;
+    setUploading(true);
+    setError('');
+    try {
+      await deleteAllModules();
+      setViewerPhotoId('');
+      setSelectedModuleId('');
+      await refreshModules('');
+      setNotice('All modules and photos were deleted.');
+    } catch (deleteError) {
+      await refreshModules('').catch(() => {});
+      setError(deleteError.message || 'Could not delete everything.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const installApp = async () => {
     if (!installPrompt) return;
     await installPrompt.prompt();
@@ -340,7 +391,7 @@ function MainApp() {
             <button key={module.id} type="button" className={`module-link${module.id === selectedModuleId ? ' is-active' : ''}`} onClick={() => { setSelectedModuleId(module.id); setSearch(''); setNotice(''); setError(''); }}>
               <span className="module-dot" />
               <span className="module-link-name">{getModuleLabel(module.name)}</span>
-              <span className="module-photo-count">{module.entries.length}</span>
+              <span className="module-photo-count">{module.entries.length + (module.savedQuestions?.length || 0)}</span>
             </button>
           ))}
           {!loading && modules.length > 0 && filteredModules.length === 0 && <p className="sidebar-empty">No modules match that search.</p>}
@@ -383,11 +434,13 @@ function MainApp() {
             <div>
               <p className="eyebrow">A LITTLE MORE ORGANIZED</p>
               <h1>{selectedModule ? getModuleLabel(selectedModule.name) : 'Your image library'}</h1>
-              <p className="welcome-copy">{selectedModule ? `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'} in this module` : 'Keep every screenshot in its place.'}</p>
+              <p className="welcome-copy">{selectedModule ? `${photos.length} ${photos.length === 1 ? 'photo' : 'photos'} · ${savedQuestions.length} saved ${savedQuestions.length === 1 ? 'question' : 'questions'}` : 'Keep every screenshot in its place.'}</p>
             </div>
             <div className="welcome-actions">
               <button type="button" className="import-action" onClick={() => folderInput.current?.click()} disabled={uploading}><FolderOpen size={16} />Import folder</button>
               <button type="button" className="import-action" onClick={() => zipInput.current?.click()} disabled={uploading}><Archive size={16} />Import ZIP</button>
+              {selectedModule && <button type="button" className="import-action danger-action" onClick={removeModule} disabled={uploading}><Trash2 size={16} />Delete module</button>}
+              {modules.length > 0 && <button type="button" className="import-action danger-action" onClick={removeAllModules} disabled={uploading}><Trash2 size={16} />Delete all</button>}
               {selectedModule && <button type="button" className="primary-button" onClick={() => fileInput.current?.click()} disabled={uploading}>
                 {uploading ? <LoaderCircle className="spin" size={18} /> : <Upload size={17} />}
                 {uploading ? 'Uploading' : 'Upload photos'}
@@ -420,6 +473,36 @@ function MainApp() {
 
           {selectedModule && (
             <>
+              {savedQuestions.length > 0 && (
+                <section className="saved-questions">
+                  <div className="gallery-toolbar">
+                    <div className="gallery-title"><h2>Saved questions</h2><span>{savedQuestions.length}</span></div>
+                    <label className="search-box"><Search size={16} /><span className="sr-only">Search questions</span><input value={questionSearch} onChange={(event) => setQuestionSearch(event.target.value)} placeholder="Find a question" /></label>
+                  </div>
+                  <div className="question-list">
+                    {filteredQuestions.map((item) => (
+                      <article className="question-card" key={item.id}>
+                        <button type="button" className="question-remove" title="Remove question" aria-label="Remove question" onClick={() => removeSavedQuestion(item)}><Trash2 size={15} /></button>
+                        <p className="question-text">{item.question}</p>
+                        {item.answer
+                          ? <p className="question-answer">Answer: {item.answer}</p>
+                          : <p className="question-unconfirmed">Answer not confirmed yet{item.wrong.length ? ` — not: ${item.wrong.join(' / ')}` : ''}</p>}
+                        {!item.answer && (() => {
+                          const guess = suggestAnswer(item);
+                          return guess ? <p className="question-guess">Try this: {guess.option} <small>(best guess, {guess.remaining} {guess.remaining === 1 ? 'option' : 'options'} left — not confirmed)</small></p> : null;
+                        })()}
+                        {item.options.length > 0 && (
+                          <ul className="question-options">
+                            {item.options.map((option) => <li key={option} className={option === item.answer ? 'is-correct' : item.wrong.includes(option) ? 'is-wrong' : ''}>{option}</li>)}
+                          </ul>
+                        )}
+                      </article>
+                    ))}
+                    {!filteredQuestions.length && <p className="sidebar-empty">No questions match that search.</p>}
+                  </div>
+                </section>
+              )}
+
               <section className={`upload-panel${dragging ? ' is-dragging' : ''}`} onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false); }} onDrop={(event) => { event.preventDefault(); setDragging(false); uploadPhotos(event.dataTransfer.files); }}>
                 <div className="upload-symbol"><ImagePlus size={21} /></div>
                 <div className="upload-copy"><strong>{dragging ? 'Drop to add to this module' : 'Add photos to this module'}</strong><span>Choose images or drag them into this space</span></div>

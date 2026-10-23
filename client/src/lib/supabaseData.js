@@ -36,6 +36,20 @@ function mapQuestionRow(row, signedUrlMap) {
   };
 }
 
+// Text questions saved by the Moodle extension keep wrong picks as JSON in ocr_text.
+function mapSavedQuestion(row) {
+  let wrong = [];
+  try { wrong = JSON.parse(row.ocr_text || '{}').wrong || []; } catch { wrong = []; }
+  return {
+    id: row.id,
+    question: row.question,
+    answer: row.answer,
+    options: row.options || [],
+    wrong,
+    createdAt: row.created_at,
+  };
+}
+
 export async function fetchModulesWithEntries() {
   const { data: moduleRows, error: modulesError } = await supabase
     .from('modules')
@@ -67,6 +81,9 @@ export async function fetchModulesWithEntries() {
     entries: questionRows
       .filter((row) => row.module_id === moduleRow.id && row.image_path)
       .map((row) => mapQuestionRow(row, signedUrlMap)),
+    savedQuestions: questionRows
+      .filter((row) => row.module_id === moduleRow.id && !row.image_path && row.question)
+      .map(mapSavedQuestion),
   }));
 }
 
@@ -118,6 +135,23 @@ export async function deleteModule(moduleId) {
 
   const { error } = await supabase.from('modules').delete().eq('id', moduleId);
   if (error) throw error;
+}
+
+export async function deleteAllModules() {
+  const { data: rows, error: findError } = await supabase.from('questions').select('image_path');
+  if (findError) throw findError;
+
+  const paths = (rows || []).map((row) => row.image_path).filter(Boolean);
+  const batchSize = 1000;
+  for (let from = 0; from < paths.length; from += batchSize) {
+    const { error } = await supabase.storage.from('screenshots').remove(paths.slice(from, from + batchSize));
+    if (error) throw error;
+  }
+
+  const { error: questionsError } = await supabase.from('questions').delete().not('id', 'is', null);
+  if (questionsError) throw questionsError;
+  const { error: modulesError } = await supabase.from('modules').delete().not('id', 'is', null);
+  if (modulesError) throw modulesError;
 }
 
 export async function findDuplicateQuestion(moduleId, imageHash) {
