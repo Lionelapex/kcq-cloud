@@ -23,47 +23,52 @@ The website's current image upload flow stores and displays photos; it does not 
 
 The repository also contains a Node/Express server and maintenance scripts. The current web client connects directly to Supabase.
 
-## Requirements
+## Use the shared KCQ Cloud
 
-- Node.js and npm.
-- A Supabase project.
-- Google Chrome or a Chromium-based browser to install the extension.
+No Supabase account, new project, or individual login is needed. Everyone uses the same live app and shared question library.
 
-## Supabase setup
+- **Open the app:** [kcq-cloud.vercel.app](https://kcq-cloud.vercel.app)
+- **Download the extension:** [Download the latest GitHub source ZIP](https://github.com/not-trent/kcq-cloud/archive/refs/heads/main.zip), then extract it.
 
-1. Create a Supabase project.
-2. In the Supabase SQL Editor, run [`supabase/schema.sql`](supabase/schema.sql). This creates the `modules` and `questions` tables and the `screenshots` storage bucket.
-3. Copy the project URL and anon/public key from the Supabase project settings.
-
-**Access warning:** The included starter schema grants public read/write access to the database and screenshots. Anyone with the app and project details can access or change this shared data. Do not use this configuration for private or sensitive content; add authentication and restrictive row-level/storage policies before doing so. Never put a Supabase service-role key in the browser or extension.
-
-## Run the web app
-
-Create `client/.env` with your project settings:
-
-```dotenv
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-```
-
-Then, from the repository root:
-
-```powershell
-npm install
-npm run dev
-```
-
-Open the local URL printed by Vite. Use the app to create a module, then upload photos or import a folder/ZIP. For folder and ZIP imports, place each module's images inside a folder named for that module.
-
-## Install the Chrome extension
+To install the extension in Chrome or another Chromium browser:
 
 1. Open `chrome://extensions` and turn on **Developer mode**.
-2. Select **Load unpacked** and choose this repository's `extension/` directory.
-3. Open the extension's **Options** page and enter the same Supabase project URL and anon key.
-4. On a Moodle quiz review page, select **Save to KCQ Cloud**, confirm the module name, and wait for the save result.
-5. Open the extension side panel or use the in-page lookup to search saved questions. On a quiz attempt page, the helper checks for a confirmed saved answer before requesting an optional AI suggestion.
+2. Choose **Load unpacked** and select the `extension` folder inside the extracted repository.
+3. Open the extension's **Options** page and enter the shared Supabase settings below. These are the same public client settings used by the live app; users do not need to create a Supabase account.
+
+```text
+Supabase URL: https://ewcworrjwtjtmkekddbq.supabase.co
+Supabase anon/public key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3Y3dvcnJqd3RqdG1rZWtkZGJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyNjA4NjcsImV4cCI6MjEwNTgzNjg2N30.pouenhxDfoL4vDCzJGJ2wUKstIMcDeFym1fNk4xDysg
+```
+
+On a Moodle quiz review page, select **Save to KCQ Cloud** and confirm the module name. Search saved questions in the extension side panel or in-page lookup. On a quiz attempt page, the helper checks for a confirmed shared answer before requesting an optional AI suggestion.
 
 AI suggestions are optional. Configure an HTTPS OpenAI-compatible chat-completions endpoint, model, and API key in extension Options. You can also add a study guide by pasting text or loading a `.txt`/`.md` guide file. The extension stores these settings and guides in Chrome local storage. A saved cloud answer takes priority over an AI request; uncertain suggestions are marked for checking.
+
+**Shared-data warning:** The Supabase anon key is designed to be used in client applications, but the current database and storage policies allow anonymous read/write access. Anyone can view, add, change, or delete shared library data. Do not upload private or sensitive content. Never use or publish a Supabase service-role key.
+
+## Develop or deploy your own copy
+
+These steps are for contributors or maintainers, not regular users of the shared app.
+
+Requirements: Node.js and npm, plus access to a Supabase project for a separate deployment.
+
+1. Create `client/.env` with the Supabase URL and anon/public key for the intended deployment:
+
+   ```dotenv
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+   ```
+
+2. For a new Supabase project, run [`supabase/schema.sql`](supabase/schema.sql) in its SQL Editor. This creates the tables and screenshot bucket. Review and restrict the included public policies before using sensitive data.
+3. From the repository root, install dependencies and start the web app:
+
+	```powershell
+	npm install
+	npm run dev
+	```
+
+For folder and ZIP image imports, put each module's images in a folder named for that module. To deploy a separate web app, configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in its Vercel project environment; deployment settings are in [`vercel.json`](vercel.json).
 
 ## Useful commands
 
@@ -83,7 +88,3 @@ npm run supabase:check
 - **Website images:** The browser uploads image files to Supabase Storage and writes their module and storage-path metadata to `questions`. The app loads images with signed URLs.
 - **Moodle quiz text:** The review-page content script reads question text, options, selected choice, and score. The extension service worker uses Supabase REST to create or update question rows. It hashes normalized question text to avoid duplicates within a module and keeps wrong picks so later results can update the saved record.
 - **Saved questions:** The web app and extension read the same Supabase tables. The extension's attempt helper uses a matching confirmed cloud answer before its optional AI fallback.
-
-## Deployment
-
-The repository includes Vercel configuration in [`vercel.json`](vercel.json). Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the Vercel project environment, then deploy the client build.
